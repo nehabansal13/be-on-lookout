@@ -4,10 +4,17 @@ using System.Data;
 
 namespace BeOnLookout.Api.Data;
 
-public sealed class CashDepositRepository(IConfiguration configuration)
+public sealed class CashDepositRepository
 {
     private const string SelectColumns =
         "CashDepositId, CustomerReference, Amount, DepositedAtUtc";
+
+    private readonly IConfiguration _configuration;
+
+    public CashDepositRepository(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
 
     public async Task<CashDeposit> CreateAsync(
         CreateCashDepositRequest request,
@@ -92,7 +99,7 @@ public sealed class CashDepositRepository(IConfiguration configuration)
 
     private SqlConnection CreateConnection()
     {
-        var connectionString = configuration.GetConnectionString("BankingDatabase");
+        var connectionString = _configuration.GetConnectionString("BankingDatabase");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
