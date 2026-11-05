@@ -8,10 +8,19 @@ namespace BeOnLookout.Api.Controllers;
 
 [ApiController]
 [Route("api/cash-deposits")]
-public sealed class CashDepositsController(
-    CashDepositRepository repository,
-    ILogger<CashDepositsController> logger) : ControllerBase
+public sealed class CashDepositsController : ControllerBase
 {
+    private readonly CashDepositRepository _repository;
+    private readonly ILogger<CashDepositsController> _logger;
+
+    public CashDepositsController(
+        CashDepositRepository repository,
+        ILogger<CashDepositsController> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
+
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<CashDeposit>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
@@ -21,7 +30,7 @@ public sealed class CashDepositsController(
     {
         try
         {
-            return Ok(await repository.GetLatestAsync(take, cancellationToken));
+            return Ok(await _repository.GetLatestAsync(take, cancellationToken));
         }
         catch (SqlException exception)
         {
@@ -43,7 +52,7 @@ public sealed class CashDepositsController(
     {
         try
         {
-            var deposit = await repository.GetByIdAsync(id, cancellationToken);
+            var deposit = await _repository.GetByIdAsync(id, cancellationToken);
             return deposit is null ? NotFound() : Ok(deposit);
         }
         catch (SqlException exception)
@@ -66,7 +75,7 @@ public sealed class CashDepositsController(
     {
         try
         {
-            var deposit = await repository.CreateAsync(request, cancellationToken);
+            var deposit = await _repository.CreateAsync(request, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = deposit.Id }, deposit);
         }
         catch (SqlException exception)
@@ -81,7 +90,7 @@ public sealed class CashDepositsController(
 
     private ObjectResult DatabaseUnavailable(SqlException exception)
     {
-        logger.LogError(
+        _logger.LogError(
             "Cash deposit request failed with SQL error number {SqlErrorNumber}.",
             exception.Number);
         return Problem(
@@ -92,7 +101,7 @@ public sealed class CashDepositsController(
 
     private ObjectResult DatabaseNotConfigured()
     {
-        logger.LogError("Cash deposit request failed because the database is not configured.");
+        _logger.LogError("Cash deposit request failed because the database is not configured.");
         return Problem(
             statusCode: StatusCodes.Status503ServiceUnavailable,
             title: "Database not configured",
