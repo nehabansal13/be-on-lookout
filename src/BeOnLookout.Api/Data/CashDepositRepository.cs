@@ -4,7 +4,7 @@ using System.Data;
 
 namespace BeOnLookout.Api.Data;
 
-public sealed class CashDepositRepository
+public sealed class CashDepositRepository : ICashDepositRepository
 {
     private const string SelectColumns =
         "CashDepositId, CustomerReference, Amount, DepositedAtUtc";

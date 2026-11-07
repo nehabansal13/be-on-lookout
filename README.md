@@ -47,6 +47,18 @@ The API endpoints are:
 | `GET` | `/api/cash-deposits?take=50` | Lists up to 100 newest deposits |
 | `GET` | `/api/cash-deposits/{id}` | Returns one deposit or `404 Not Found` |
 
+### Run the API tests
+
+From the repository directory, run:
+
+```powershell
+dotnet test .\BeOnLookout.slnx
+```
+
+The GET-by-ID tests send HTTP requests through an in-memory ASP.NET test server.
+They use a fake repository, so they verify the `200` JSON response and `404`
+status without connecting to or changing LocalDB.
+
 For example, after starting the API, use another PowerShell terminal:
 
 ```powershell

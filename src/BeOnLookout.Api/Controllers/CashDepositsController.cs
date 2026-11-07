@@ -10,11 +10,11 @@ namespace BeOnLookout.Api.Controllers;
 [Route("api/cash-deposits")]
 public sealed class CashDepositsController : ControllerBase
 {
-    private readonly CashDepositRepository _repository;
+    private readonly ICashDepositRepository _repository;
     private readonly ILogger<CashDepositsController> _logger;
 
     public CashDepositsController(
-        CashDepositRepository repository,
+        ICashDepositRepository repository,
         ILogger<CashDepositsController> logger)
     {
         _repository = repository;

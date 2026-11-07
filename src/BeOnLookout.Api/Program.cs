@@ -9,7 +9,7 @@ builder.Services.AddHealthChecks()
         "banking-database",
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(15));
-builder.Services.AddScoped<CashDepositRepository>();
+builder.Services.AddScoped<ICashDepositRepository, CashDepositRepository>();
 
 var app = builder.Build();
 
@@ -26,3 +26,5 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }
