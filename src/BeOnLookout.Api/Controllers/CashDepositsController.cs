@@ -65,6 +65,41 @@ public sealed class CashDepositsController : ControllerBase
         }
     }
 
+    [HttpGet("/api/customers/{customerId:long}/cash-deposits/summary")]
+    [ProducesResponseType<CashDepositSummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<CashDepositSummary>> GetCustomerSummary(
+        [FromRoute, Range(1, long.MaxValue)] long customerId,
+        [FromQuery] DateTimeOffset? fromUtc,
+        [FromQuery] DateTimeOffset? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (fromUtc is null || toUtc is null || fromUtc >= toUtc)
+        {
+            return BadRequest("Provide fromUtc and toUtc, with fromUtc earlier than toUtc.");
+        }
+
+        try
+        {
+            var summary = await _repository.GetSummaryByCustomerIdAsync(
+                customerId,
+                fromUtc.Value.ToUniversalTime(),
+                toUtc.Value.ToUniversalTime(),
+                cancellationToken);
+            return summary is null ? NotFound() : Ok(summary);
+        }
+        catch (SqlException exception)
+        {
+            return DatabaseUnavailable(exception);
+        }
+        catch (InvalidOperationException)
+        {
+            return DatabaseNotConfigured();
+        }
+    }
+
     [HttpGet("{id:long}")]
     [ProducesResponseType<CashDeposit>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
