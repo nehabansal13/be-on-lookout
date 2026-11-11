@@ -101,6 +101,50 @@ public sealed class CashDepositRepository : ICashDepositRepository
             : null;
     }
 
+    public async Task<IReadOnlyList<CashDeposit>?> GetByCustomerIdAsync(
+        long customerId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT customer.CustomerId,
+                   deposit.CashDepositId,
+                   deposit.CustomerId,
+                   deposit.CustomerReference,
+                   deposit.Amount,
+                   deposit.DepositedAtUtc
+            FROM dbo.Customers AS customer
+            LEFT JOIN dbo.CashDeposits AS deposit
+                ON deposit.CustomerId = customer.CustomerId
+            WHERE customer.CustomerId = @CustomerId
+            ORDER BY deposit.DepositedAtUtc DESC, deposit.CashDepositId DESC;
+            """;
+        command.Parameters.Add(
+            new SqlParameter("@CustomerId", SqlDbType.BigInt) { Value = customerId });
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var deposits = new List<CashDeposit>();
+        if (!reader.IsDBNull(1))
+        {
+            deposits.Add(ReadCashDeposit(reader, 1));
+        }
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            deposits.Add(ReadCashDeposit(reader, 1));
+        }
+
+        return deposits;
+    }
+
     private SqlConnection CreateConnection()
     {
         var connectionString = _configuration.GetConnectionString("BankingDatabase");
@@ -113,11 +157,11 @@ public sealed class CashDepositRepository : ICashDepositRepository
         return new SqlConnection(connectionString);
     }
 
-    private static CashDeposit ReadCashDeposit(SqlDataReader reader) =>
+    private static CashDeposit ReadCashDeposit(SqlDataReader reader, int offset = 0) =>
         new(
-            reader.GetInt64(0),
-            reader.IsDBNull(1) ? null : reader.GetInt64(1),
-            reader.GetString(2),
-            reader.GetDecimal(3),
-            reader.GetDateTimeOffset(4));
+            reader.GetInt64(offset),
+            reader.IsDBNull(offset + 1) ? null : reader.GetInt64(offset + 1),
+            reader.GetString(offset + 2),
+            reader.GetDecimal(offset + 3),
+            reader.GetDateTimeOffset(offset + 4));
 }

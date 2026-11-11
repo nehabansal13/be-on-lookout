@@ -12,6 +12,10 @@ public interface ICashDepositRepository
         int take,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<CashDeposit>?> GetByCustomerIdAsync(
+        long customerId,
+        CancellationToken cancellationToken);
+
     Task<CashDeposit?> GetByIdAsync(
         long id,
         CancellationToken cancellationToken);
