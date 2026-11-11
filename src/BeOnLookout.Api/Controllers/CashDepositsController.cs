@@ -68,6 +68,7 @@ public sealed class CashDepositsController : ControllerBase
     [HttpPost]
     [ProducesResponseType<CashDeposit>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<CashDeposit>> Create(
         [FromBody] CreateCashDepositRequest request,
@@ -76,7 +77,9 @@ public sealed class CashDepositsController : ControllerBase
         try
         {
             var deposit = await _repository.CreateAsync(request, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = deposit.Id }, deposit);
+            return deposit is null
+                ? NotFound()
+                : CreatedAtAction(nameof(GetById), new { id = deposit.Id }, deposit);
         }
         catch (SqlException exception)
         {

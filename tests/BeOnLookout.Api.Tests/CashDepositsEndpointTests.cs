@@ -13,6 +13,7 @@ public sealed class CashDepositsEndpointTests
 {
     private static readonly CashDeposit ExpectedDeposit = new(
         42,
+        7,
         "TEST-CUSTOMER-1",
         12500.00m,
         new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero));
@@ -42,6 +43,35 @@ public sealed class CashDepositsEndpointTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Create_WhenCustomerExists_ReturnsCreatedDeposit()
+    {
+        using var factory = CreateFactory(new StubCashDepositRepository(ExpectedDeposit));
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/cash-deposits",
+            new CreateCashDepositRequest { CustomerId = 7, Amount = 12500.00m });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(
+            ExpectedDeposit,
+            await response.Content.ReadFromJsonAsync<CashDeposit>());
+    }
+
+    [Fact]
+    public async Task Create_WhenCustomerDoesNotExist_ReturnsNotFound()
+    {
+        using var factory = CreateFactory(new StubCashDepositRepository(null));
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/cash-deposits",
+            new CreateCashDepositRequest { CustomerId = 999, Amount = 12500.00m });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         ICashDepositRepository repository) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -54,10 +84,10 @@ public sealed class CashDepositsEndpointTests
     private sealed class StubCashDepositRepository(CashDeposit? deposit)
         : ICashDepositRepository
     {
-        public Task<CashDeposit> CreateAsync(
+        public Task<CashDeposit?> CreateAsync(
             CreateCashDepositRequest request,
             CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult(deposit);
 
         public Task<IReadOnlyList<CashDeposit>> GetLatestAsync(
             int take,
