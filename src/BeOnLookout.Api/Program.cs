@@ -10,6 +10,7 @@ builder.Services.AddHealthChecks()
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<ICashDepositRepository, CashDepositRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 
 var app = builder.Build();
 

@@ -7,7 +7,7 @@ namespace BeOnLookout.Api.Data;
 public sealed class CashDepositRepository : ICashDepositRepository
 {
     private const string SelectColumns =
-        "CashDepositId, CustomerReference, Amount, DepositedAtUtc";
+        "CashDepositId, CustomerId, CustomerReference, Amount, DepositedAtUtc";
 
     private readonly IConfiguration _configuration;
 
@@ -16,7 +16,7 @@ public sealed class CashDepositRepository : ICashDepositRepository
         _configuration = configuration;
     }
 
-    public async Task<CashDeposit> CreateAsync(
+    public async Task<CashDeposit?> CreateAsync(
         CreateCashDepositRequest request,
         CancellationToken cancellationToken)
     {
@@ -25,18 +25,21 @@ public sealed class CashDepositRepository : ICashDepositRepository
 
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
-            INSERT INTO dbo.CashDeposits (CustomerReference, Amount)
+            INSERT INTO dbo.CashDeposits (CustomerId, CustomerReference, Amount)
             OUTPUT INSERTED.CashDepositId,
+                   INSERTED.CustomerId,
                    INSERTED.CustomerReference,
                    INSERTED.Amount,
                    INSERTED.DepositedAtUtc
-            VALUES (@CustomerReference, @Amount);
+            SELECT @CustomerId, customer.CustomerReference, @Amount
+            FROM dbo.Customers AS customer
+            WHERE customer.CustomerId = @CustomerId;
             """;
 
         command.Parameters.Add(
-            new SqlParameter("@CustomerReference", SqlDbType.NVarChar, 64)
+            new SqlParameter("@CustomerId", SqlDbType.BigInt)
             {
-                Value = request.CustomerReference.Trim()
+                Value = request.CustomerId
             });
         command.Parameters.Add(
             new SqlParameter("@Amount", SqlDbType.Decimal)
@@ -47,8 +50,9 @@ public sealed class CashDepositRepository : ICashDepositRepository
             });
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        await reader.ReadAsync(cancellationToken);
-        return ReadCashDeposit(reader);
+        return await reader.ReadAsync(cancellationToken)
+            ? ReadCashDeposit(reader)
+            : null;
     }
 
     public async Task<IReadOnlyList<CashDeposit>> GetLatestAsync(
@@ -112,7 +116,8 @@ public sealed class CashDepositRepository : ICashDepositRepository
     private static CashDeposit ReadCashDeposit(SqlDataReader reader) =>
         new(
             reader.GetInt64(0),
-            reader.GetString(1),
-            reader.GetDecimal(2),
-            reader.GetDateTimeOffset(3));
+            reader.IsDBNull(1) ? null : reader.GetInt64(1),
+            reader.GetString(2),
+            reader.GetDecimal(3),
+            reader.GetDateTimeOffset(4));
 }

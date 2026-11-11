@@ -4,7 +4,7 @@ namespace BeOnLookout.Api.Data;
 
 public interface ICashDepositRepository
 {
-    Task<CashDeposit> CreateAsync(
+    Task<CashDeposit?> CreateAsync(
         CreateCashDepositRequest request,
         CancellationToken cancellationToken);
 

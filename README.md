@@ -4,8 +4,8 @@ This is a learning project on how i would design a banking scenario to file CTR 
 ## First project: C# Banking API
 
 The API currently has liveness/readiness checks and endpoints for recording and
-reading cash deposits. Customer management, React, and AI assessments are not
-implemented yet.
+reading cash deposits and customer records. React and AI assessments are still
+future work.
 
 Database access uses ADO.NET through `Microsoft.Data.SqlClient`, not Entity
 Framework. The readiness check only runs `SELECT 1`; it does not create tables
@@ -34,8 +34,12 @@ The user-secrets command stores the local development connection string outside
 the repository. Re-run it if you previously configured the Azure connection string.
 The LocalDB instance and schema must be installed before database-backed endpoints
 can be used. To create the schema, open
-`database\local\001-create-cash-deposits.sql` in SSMS, connect to
-`(localdb)\BeOnLookout` using Windows Authentication, and execute the script.
+`database\local\001-create-cash-deposits.sql` and
+`database\local\002-create-customers.sql` and
+`database\local\003-link-cash-deposits-to-customers.sql` in SSMS, connect to
+`(localdb)\BeOnLookout` using Windows Authentication, and execute the scripts.
+Run them in numeric order. The third script adds the customer relationship while
+leaving existing deposits unlinked.
 
 The API endpoints are:
 
@@ -46,6 +50,9 @@ The API endpoints are:
 | `POST` | `/api/cash-deposits` | Records a deposit and returns `201 Created` |
 | `GET` | `/api/cash-deposits?take=50` | Lists up to 100 newest deposits |
 | `GET` | `/api/cash-deposits/{id}` | Returns one deposit or `404 Not Found` |
+| `GET` | `/api/customers?take=50` | Lists up to 100 newest customers |
+| `GET` | `/api/customers/{id}` | Returns one customer or `404 Not Found` |
+| `POST` | `/api/customers` | Creates a customer and returns `201 Created` |
 
 ### Run the API tests
 
@@ -63,9 +70,12 @@ For example, after starting the API, use another PowerShell terminal:
 
 ```powershell
 Invoke-RestMethod http://localhost:5180/health
+$customer = Invoke-RestMethod -Method Post http://localhost:5180/api/customers `
+  -ContentType "application/json" `
+  -Body '{"customerReference":"DEMO-1001","displayName":"Example Customer"}'
 Invoke-RestMethod -Method Post http://localhost:5180/api/cash-deposits `
   -ContentType "application/json" `
-  -Body '{"customerReference":"DEMO-1001","amount":12500.00}'
+  -Body (@{ customerId = $customer.id; amount = 12500.00 } | ConvertTo-Json)
 Invoke-RestMethod http://localhost:5180/api/cash-deposits
 ```
 
@@ -144,10 +154,16 @@ developer CLI credentials or user-secrets files to Azure.
 | `src\BeOnLookout.Api\Program.cs` | Starts the application and maps liveness and readiness endpoints |
 | `src\BeOnLookout.Api\Health\DatabaseHealthCheck.cs` | Opens an ADO.NET connection and executes a read-only SQL probe |
 | `src\BeOnLookout.Api\Controllers\CashDepositsController.cs` | Defines the cash deposit `GET` and `POST` HTTP endpoints |
+| `src\BeOnLookout.Api\Controllers\CustomersController.cs` | Defines the customer `GET` and `POST` HTTP endpoints |
 | `src\BeOnLookout.Api\Data\CashDepositRepository.cs` | Runs parameterized ADO.NET queries for cash deposits |
+| `src\BeOnLookout.Api\Data\CustomerRepository.cs` | Runs parameterized ADO.NET queries for customers |
 | `src\BeOnLookout.Api\Models\CreateCashDepositRequest.cs` | Defines and validates the deposit request body |
+| `src\BeOnLookout.Api\Models\CreateCustomerRequest.cs` | Defines and validates the customer request body |
 | `src\BeOnLookout.Api\Models\CashDeposit.cs` | Defines the deposit returned by the API |
+| `src\BeOnLookout.Api\Models\Customer.cs` | Defines the customer returned by the API |
 | `database\local\001-create-cash-deposits.sql` | Creates the local learning database and cash deposit table |
+| `database\local\002-create-customers.sql` | Creates the local customer table used by the API |
+| `database\local\003-link-cash-deposits-to-customers.sql` | Adds a nullable customer foreign key to cash deposits |
 | `src\BeOnLookout.Api\Properties\launchSettings.json` | Sets local development ports and environment |
 | `src\BeOnLookout.Api\appsettings.json` | Configures application and framework logging |
 | `.gitignore` | Excludes generated build output and local environment files from Git |
