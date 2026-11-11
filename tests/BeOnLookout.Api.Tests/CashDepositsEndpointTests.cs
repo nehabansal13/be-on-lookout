@@ -44,6 +44,45 @@ public sealed class CashDepositsEndpointTests
     }
 
     [Fact]
+    public async Task GetByCustomerId_WhenCustomerHasDeposits_ReturnsDeposits()
+    {
+        var deposits = new[] { ExpectedDeposit };
+        using var factory = CreateFactory(new StubCashDepositRepository(null, deposits));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/customers/7/cash-deposits");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(deposits, await response.Content.ReadFromJsonAsync<CashDeposit[]>());
+    }
+
+    [Fact]
+    public async Task GetByCustomerId_WhenCustomerHasNoDeposits_ReturnsEmptyList()
+    {
+        using var factory = CreateFactory(
+            new StubCashDepositRepository(null, Array.Empty<CashDeposit>()));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/customers/7/cash-deposits");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var deposits = await response.Content.ReadFromJsonAsync<CashDeposit[]>();
+        Assert.NotNull(deposits);
+        Assert.Empty(deposits);
+    }
+
+    [Fact]
+    public async Task GetByCustomerId_WhenCustomerDoesNotExist_ReturnsNotFound()
+    {
+        using var factory = CreateFactory(new StubCashDepositRepository(null));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/customers/999/cash-deposits");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_WhenCustomerExists_ReturnsCreatedDeposit()
     {
         using var factory = CreateFactory(new StubCashDepositRepository(ExpectedDeposit));
@@ -81,9 +120,12 @@ public sealed class CashDepositsEndpointTests
                 services.AddSingleton(repository);
             }));
 
-    private sealed class StubCashDepositRepository(CashDeposit? deposit)
-        : ICashDepositRepository
+    private sealed class StubCashDepositRepository(
+        CashDeposit? deposit,
+        IReadOnlyList<CashDeposit>? customerDeposits = null) : ICashDepositRepository
     {
+        private readonly IReadOnlyList<CashDeposit>? _customerDeposits = customerDeposits;
+
         public Task<CashDeposit?> CreateAsync(
             CreateCashDepositRequest request,
             CancellationToken cancellationToken) =>
@@ -93,6 +135,11 @@ public sealed class CashDepositsEndpointTests
             int take,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<IReadOnlyList<CashDeposit>?> GetByCustomerIdAsync(
+            long customerId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(_customerDeposits);
 
         public Task<CashDeposit?> GetByIdAsync(
             long id,

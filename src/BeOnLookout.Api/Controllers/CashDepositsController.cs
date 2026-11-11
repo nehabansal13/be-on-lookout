@@ -42,6 +42,29 @@ public sealed class CashDepositsController : ControllerBase
         }
     }
 
+    [HttpGet("/api/customers/{customerId:long}/cash-deposits")]
+    [ProducesResponseType<IReadOnlyList<CashDeposit>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<IReadOnlyList<CashDeposit>>> GetByCustomerId(
+        [FromRoute, Range(1, long.MaxValue)] long customerId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var deposits = await _repository.GetByCustomerIdAsync(customerId, cancellationToken);
+            return deposits is null ? NotFound() : Ok(deposits);
+        }
+        catch (SqlException exception)
+        {
+            return DatabaseUnavailable(exception);
+        }
+        catch (InvalidOperationException)
+        {
+            return DatabaseNotConfigured();
+        }
+    }
+
     [HttpGet("{id:long}")]
     [ProducesResponseType<CashDeposit>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
