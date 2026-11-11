@@ -16,6 +16,12 @@ public interface ICashDepositRepository
         long customerId,
         CancellationToken cancellationToken);
 
+    Task<CashDepositSummary?> GetSummaryByCustomerIdAsync(
+        long customerId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        CancellationToken cancellationToken);
+
     Task<CashDeposit?> GetByIdAsync(
         long id,
         CancellationToken cancellationToken);

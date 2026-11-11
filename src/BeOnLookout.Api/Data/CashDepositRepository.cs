@@ -145,6 +145,49 @@ public sealed class CashDepositRepository : ICashDepositRepository
         return deposits;
     }
 
+    public async Task<CashDepositSummary?> GetSummaryByCustomerIdAsync(
+        long customerId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT customer.CustomerId,
+                   COUNT_BIG(deposit.CashDepositId) AS DepositCount,
+                   COALESCE(SUM(deposit.Amount), 0) AS TotalAmount
+            FROM dbo.Customers AS customer
+            LEFT JOIN dbo.CashDeposits AS deposit
+                ON deposit.CustomerId = customer.CustomerId
+               AND deposit.DepositedAtUtc >= @FromUtc
+               AND deposit.DepositedAtUtc < @ToUtc
+            WHERE customer.CustomerId = @CustomerId
+            GROUP BY customer.CustomerId;
+            """;
+        command.Parameters.Add(
+            new SqlParameter("@CustomerId", SqlDbType.BigInt) { Value = customerId });
+        command.Parameters.Add(
+            new SqlParameter("@FromUtc", SqlDbType.DateTimeOffset) { Value = fromUtc });
+        command.Parameters.Add(
+            new SqlParameter("@ToUtc", SqlDbType.DateTimeOffset) { Value = toUtc });
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new CashDepositSummary(
+            reader.GetInt64(0),
+            fromUtc,
+            toUtc,
+            reader.GetInt64(1),
+            reader.GetDecimal(2));
+    }
+
     private SqlConnection CreateConnection()
     {
         var connectionString = _configuration.GetConnectionString("BankingDatabase");

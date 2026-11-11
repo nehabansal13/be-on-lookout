@@ -51,6 +51,7 @@ The API endpoints are:
 | `GET` | `/api/cash-deposits?take=50` | Lists up to 100 newest deposits |
 | `GET` | `/api/cash-deposits/{id}` | Returns one deposit or `404 Not Found` |
 | `GET` | `/api/customers/{customerId}/cash-deposits` | Lists a customer's deposits or returns `404 Not Found` for an unknown customer |
+| `GET` | `/api/customers/{customerId}/cash-deposits/summary?fromUtc=...&toUtc=...` | Returns a customer's deposit count and total amount for a UTC date-time range (`fromUtc` inclusive, `toUtc` exclusive) |
 | `GET` | `/api/customers?take=50` | Lists up to 100 newest customers |
 | `GET` | `/api/customers/{id}` | Returns one customer or `404 Not Found` |
 | `POST` | `/api/customers` | Creates a customer and returns `201 Created` |

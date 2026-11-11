@@ -83,6 +83,62 @@ public sealed class CashDepositsEndpointTests
     }
 
     [Fact]
+    public async Task GetCustomerSummary_WhenCustomerExists_ReturnsSummary()
+    {
+        var fromUtc = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        var toUtc = new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero);
+        var summary = new CashDepositSummary(7, fromUtc, toUtc, 2, 650.00m);
+        using var factory = CreateFactory(new StubCashDepositRepository(null, summary: summary));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/customers/7/cash-deposits/summary?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-12-01T00:00:00Z");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(summary, await response.Content.ReadFromJsonAsync<CashDepositSummary>());
+    }
+
+    [Fact]
+    public async Task GetCustomerSummary_WhenNoDepositsMatch_ReturnsZeroTotals()
+    {
+        var fromUtc = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        var toUtc = new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero);
+        var summary = new CashDepositSummary(7, fromUtc, toUtc, 0, 0m);
+        using var factory = CreateFactory(new StubCashDepositRepository(null, summary: summary));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/customers/7/cash-deposits/summary?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-12-01T00:00:00Z");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(summary, await response.Content.ReadFromJsonAsync<CashDepositSummary>());
+    }
+
+    [Fact]
+    public async Task GetCustomerSummary_WhenDateRangeIsInvalid_ReturnsBadRequest()
+    {
+        using var factory = CreateFactory(new StubCashDepositRepository(null));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/customers/7/cash-deposits/summary?fromUtc=2026-12-01T00:00:00Z&toUtc=2026-11-01T00:00:00Z");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCustomerSummary_WhenCustomerDoesNotExist_ReturnsNotFound()
+    {
+        using var factory = CreateFactory(new StubCashDepositRepository(null));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            "/api/customers/999/cash-deposits/summary?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-12-01T00:00:00Z");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_WhenCustomerExists_ReturnsCreatedDeposit()
     {
         using var factory = CreateFactory(new StubCashDepositRepository(ExpectedDeposit));
@@ -122,9 +178,11 @@ public sealed class CashDepositsEndpointTests
 
     private sealed class StubCashDepositRepository(
         CashDeposit? deposit,
-        IReadOnlyList<CashDeposit>? customerDeposits = null) : ICashDepositRepository
+        IReadOnlyList<CashDeposit>? customerDeposits = null,
+        CashDepositSummary? summary = null) : ICashDepositRepository
     {
         private readonly IReadOnlyList<CashDeposit>? _customerDeposits = customerDeposits;
+        private readonly CashDepositSummary? _summary = summary;
 
         public Task<CashDeposit?> CreateAsync(
             CreateCashDepositRequest request,
@@ -140,6 +198,13 @@ public sealed class CashDepositsEndpointTests
             long customerId,
             CancellationToken cancellationToken) =>
             Task.FromResult(_customerDeposits);
+
+        public Task<CashDepositSummary?> GetSummaryByCustomerIdAsync(
+            long customerId,
+            DateTimeOffset fromUtc,
+            DateTimeOffset toUtc,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(_summary);
 
         public Task<CashDeposit?> GetByIdAsync(
             long id,
